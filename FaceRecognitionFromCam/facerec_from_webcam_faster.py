@@ -22,10 +22,10 @@ def get_img(path, dir_path, i):
     print('began process...')
     img = cv2.imread(path)
     w,h,c = img.shape
-    #print(w, h)
+    print(w, h)
     #resizing img
     scale = (320 / max(w,h))
-    #print(scale)
+    print(scale)
     
     img = cv2.resize(img, (int(w * scale), int(h * scale)))
     #print(img.shape)
@@ -106,12 +106,17 @@ while True:
     if process_this_frame:
         # Find all the faces and face encodings in the current frame of video
         face_locations = face_recognition.face_locations(gray)
+        print(face_locations)
+        if len(face_locations) < 1:
+            continue
+        marks = face_recognition.face_landmarks(gray, face_locations)
+        print(marks)
         face_encodings = face_recognition.face_encodings(gray, face_locations)
 
         face_names = []
         print(len(face_encodings))
         for face_encoding in face_encodings:
-            matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
+            matches = face_recognition.compare_faces(known_face_encodings, face_encoding, 0.6)
             name = "Unknown"
                 
 
