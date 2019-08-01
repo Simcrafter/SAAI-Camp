@@ -9,6 +9,7 @@ class Person:
         self.name = name
         self.images = images
         
+clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(5, 5))  
 def read_dirs(path):
     dirs = []
 
@@ -17,26 +18,38 @@ def read_dirs(path):
 
     return dirs
     
-def get_img(path, dir_path):
+def get_img(path, dir_path, i):
     print('began process...')
-    img = Image.open(path)
-    w, h = img.size
-    print(w, h)
+    img = cv2.imread(path)
+    w,h,c = img.shape
+    #print(w, h)
     #resizing img
-    ratio = (320 / float(img.size[0]))
-    print(ratio)
-    hsize = int((float(h) / float(ratio)))
-    wsize = int((float(w) / float(ratio)))
-    img = img.resize((wsize, hsize), Image.ANTIALIAS)
-    image_title = dir_path + "/resized_image.jpg"
+    scale = (320 / max(w,h))
+    #print(scale)
+    
+    img = cv2.resize(img, (int(w * scale), int(h * scale)))
+    #print(img.shape)
+
+    image_title = dir_path + "/resized_image" + str(i) + ".jpg"
     #os.remove(path)
-    img.save(image_title)
-    print("person has been loaded & resized")
-    img = Image.open(image_title)
-    new_image = face_recognition.load_image_file(image_title)
-    new_face_encoding = face_recognition.face_encodings(new_image)[0]
+#    img.save(image_title)
+    print("person has been loaded & resized", path)
+
+    gray = clahe.apply(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
+    cv2.imshow('face', gray)
+    enc = None
+    try:
+        loc = face_recognition.face_locations(gray)
+        print(loc)
+        if len(loc) != 0:
+            enc = face_recognition.face_encodings(gray,loc)
+    except:
+        print("Bad img")
+        return img, None
+    #np.savetxt('e' + str(i) + '.enc', new_face_encoding)
     print("person learned")
-    return (img,new_face_encoding)
+    #return (img, dir_path + '/e' + str(i) + '.enc')
+    return (img, enc)
 
     
 def get_people(dirs):
@@ -46,13 +59,17 @@ def get_people(dirs):
         img_paths = [(i + '/' + f) for f in os.listdir(i) \
                      if os.path.isfile(os.path.join(i, f))]
         img_enc = []
+        j = 0
 
         for path in img_paths:
-            img_enc.append(get_img(path, i))
-
-        people.append(Person(i[10:], img_enc))
+            img, enc = get_img(path, i, j)
+            
+            if enc is None:
+                continue
+                
+            known_face_names.append(i[10:])
+            known_face_encodings.append(enc)
         
-    return people
 
 dirname = os.path.dirname(__file__)
 img_path = os.path.join(dirname, '../images')
@@ -64,11 +81,6 @@ video_capture = cv2.VideoCapture(0)
 known_face_encodings=[]
 known_face_names=[]
 
-for person in people:
-	for img, enc in person.images:
-		known_face_encodings.append(enc)
-		known_face_names.append(person.name)
-
 # Initialize some variables
 face_locations = []
 face_encodings = []
@@ -79,19 +91,22 @@ clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(5, 5))
 while True:
     # Grab a single frame of video
     ret, frame = video_capture.read()
+    frame = cv2.flip(frame, -1)
 
     # Resize frame of video to 1/4 size for faster face recognition processing
     small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
-    gray = clahe.apply(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY))
+    gray = clahe.apply(cv2.cvtColor(small_frame, cv2.COLOR_BGR2GRAY))
+    
+    
 
     # Convert the image from BGR color (which OpenCV uses) to RGB color (which face_recognition uses)
-    rgb_gray = cv2.cvtColor(gray, cv2.COLOR_BGR2RGB)
+    #rgb_gray = cv2.cvtColor(gray, cv2.COLOR_BGR2RGB)
 
     # Only process every other frame of video to save time
     if process_this_frame:
         # Find all the faces and face encodings in the current frame of video
-        face_locations = face_recognition.face_locations(rgb_gray)
-        face_encodings = face_recognition.face_encodings(rgb_gray, face_locations)
+        face_locations = face_recognition.face_locations(gray)
+        face_encodings = face_recognition.face_encodings(gray, face_locations)
 
         face_names = []
         print(len(face_encodings))
@@ -110,6 +125,7 @@ while True:
             best_match_index = np.argmin(face_distances)
             if matches[best_match_index]:
                 name = known_face_names[best_match_index]
+                print(name)
             face_names.append(name)
 
     process_this_frame = not process_this_frame
@@ -132,7 +148,6 @@ while True:
         cv2.putText(frame, name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
 
     # Display the resulting image
-    cv2.flip(frame,-1)
     cv2.imshow('Video', frame)
 
     # Hit 'q' on the keyboard to quit!
