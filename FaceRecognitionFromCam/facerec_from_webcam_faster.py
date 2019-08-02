@@ -1,3 +1,4 @@
+
 import face_recognition
 from PIL import Image, ImageDraw
 import cv2
@@ -91,11 +92,12 @@ video_capture = cv2.VideoCapture(0)
 known_face_encodings=[]
 known_face_names=[]
 
+cnt = 0
 for obj in people:
-    #print(len(obj[1][0]))
+    print(obj[0],cnt)
     known_face_encodings.append(obj[1][0])
     known_face_names.append(obj[0])
-
+    cnt += 1
 
 # Initialize some variables
 face_locations = []
@@ -111,30 +113,42 @@ while True:
 
     # Resize frame of video to 1/4 size for faster face recognition processing
     small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
-    #gray = clahe.apply(cv2.cvtColor(small_frame, cv2.COLOR_BGR2GRAY))
     
+    #sharpen color image
+    b,g,r = cv2.split(small_frame)
+    b = clahe.apply(b)
+    g = clahe.apply(g)
+    r = clahe.apply(r)
+    small_frame = cv2.merge([b,g,r])
+    #gray = clahe.apply(cv2.cvtColor(small_frame, cv2.COLOR_BGR2GRAY))
     
 
     # Convert the image from BGR color (which OpenCV uses) to RGB color (which face_recognition uses)
-    #rgb_gray = cv2.cvtColor(gray, cv2.COLOR_BGR2RGB)
+    rgb_gray = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
+
+    faces, conf = cvl.detect_face(small_frame)
 
     # Only process every other frame of video to save time
     if process_this_frame:
         # Find all the faces and face encodings in the current frame of video
-        faces, conf = cvl.detect_face(small_frame)
-        print(len(faces))
+        print("FACES",len(faces))
         if len(faces) < 1:
+            cv2.imshow('Video', frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
             continue
         #marks = face_recognition.face_landmarks(small_frame, faces)
         #print(marks)
+
+
         face_encodings = face_recognition.face_encodings(small_frame, faces)
 
         face_names = []
-        print(len(face_encodings))
+        #print("ENC",len(face_encodings))
         for face_encoding in face_encodings:
-            matches = face_recognition.compare_faces(known_face_encodings, face_encoding, 0.6)
+            matches = face_recognition.compare_faces(known_face_encodings, face_encoding, 0.4)
             name = "Unknown"
-                
+            print("MTCH",matches)
 
                 # # If a match was found in known_face_encodings, just use the first one.
                 # if True in matches:
@@ -143,6 +157,7 @@ while True:
 
                 # Or instead, use the known face with the smallest distance to the new face
             face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
+            print(face_distances)
             best_match_index = np.argmin(face_distances)
             if matches[best_match_index]:
                 name = known_face_names[best_match_index]
@@ -153,7 +168,7 @@ while True:
 
 
     # Display the results
-    for (top, right, bottom, left), name in zip(face_locations, face_names):
+    for (top, right, bottom, left), name in zip(faces, face_names):
         # Scale back up face locations since the frame we detected in was scaled to 1/4 size
         top *= 4
         right *= 4
@@ -161,7 +176,8 @@ while True:
         left *= 4
 
         # Draw a box around the face
-        cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
+        cv2.rectangle(frame, (right, bottom), \
+                      (left, top), (0, 0, 255), 2)
 
         # Draw a label with a name below the face
         cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 0, 255), cv2.FILLED)

@@ -15,6 +15,10 @@ def enclass(path, save):
     os.chdir(path)
     classenc = []
     dlist = os.scandir('.')
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(5, 5))
+
     for dent in dlist:
         if not dent.is_dir():
             continue
@@ -29,8 +33,9 @@ def enclass(path, save):
             if len(conf) < 1:
                 continue
             print(conf[0], face[0])
-            
-            enc = face_recognition.face_encodings(img, face)
+            gray = clahe.apply(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
+ 
+            enc = face_recognition.face_encodings(gray, face)
             obj = name, enc
             classenc.append(obj)
             
