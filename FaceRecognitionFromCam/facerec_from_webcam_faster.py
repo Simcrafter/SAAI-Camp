@@ -3,7 +3,12 @@ from PIL import Image, ImageDraw
 import cv2
 import numpy as np
 import os
+import pickle as pk
+import cvlib as cvl
+import sys
 
+
+''' Code from last version of the program (obsolete)
 class Person:
     def __init__(self, name, images):
         self.name = name
@@ -75,11 +80,22 @@ dirname = os.path.dirname(__file__)
 img_path = os.path.join(dirname, '../images')
 dirs = read_dirs(img_path)
 people = get_people(dirs)
+'''
+
+encs = open("./images/class.enc",'rb')
+encs.seek(0)
+people = pk.load(encs)
 
 video_capture = cv2.VideoCapture(0)
 
 known_face_encodings=[]
 known_face_names=[]
+
+for obj in people:
+    #print(len(obj[1][0]))
+    known_face_encodings.append(obj[1][0])
+    known_face_names.append(obj[0])
+
 
 # Initialize some variables
 face_locations = []
@@ -95,7 +111,7 @@ while True:
 
     # Resize frame of video to 1/4 size for faster face recognition processing
     small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
-    gray = clahe.apply(cv2.cvtColor(small_frame, cv2.COLOR_BGR2GRAY))
+    #gray = clahe.apply(cv2.cvtColor(small_frame, cv2.COLOR_BGR2GRAY))
     
     
 
@@ -105,13 +121,13 @@ while True:
     # Only process every other frame of video to save time
     if process_this_frame:
         # Find all the faces and face encodings in the current frame of video
-        face_locations = face_recognition.face_locations(gray)
-        print(face_locations)
-        if len(face_locations) < 1:
+        faces, conf = cvl.detect_face(small_frame)
+        print(len(faces))
+        if len(faces) < 1:
             continue
-        marks = face_recognition.face_landmarks(gray, face_locations)
-        print(marks)
-        face_encodings = face_recognition.face_encodings(gray, face_locations)
+        #marks = face_recognition.face_landmarks(small_frame, faces)
+        #print(marks)
+        face_encodings = face_recognition.face_encodings(small_frame, faces)
 
         face_names = []
         print(len(face_encodings))
